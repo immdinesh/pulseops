@@ -11,6 +11,10 @@ coverage/
 .env.*
 !.env.example
 
+# Claude Code notes — local only, never pushed
+CLAUDE.md
+CLAUDE.local.md
+
 # Logs
 logs/
 *.log

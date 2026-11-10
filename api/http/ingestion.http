@@ -1,0 +1,112 @@
+# Test requests for the ingestion API.
+# Needs the VS Code extension "REST Client" (by Huachao Mao).
+# Click "Send Request" above each request. Requests are separated by ###.
+
+@baseUrl = http://localhost:3000/api/v1
+
+### 1. ✅ Logs: a small batch → 202 Accepted
+POST {{baseUrl}}/ingest/logs
+Content-Type: application/json
+
+{
+  "logs": [
+    {
+      "service": "payments-service",
+      "level": "error",
+      "message": "Payment gateway timeout after 5000ms",
+      "timestamp": "2026-11-09T10:15:00Z",
+      "traceId": "trace-abc-123",
+      "attributes": { "orderId": 42, "gateway": "stripe" }
+    },
+    {
+      "service": "orders-service",
+      "level": "warn",
+      "message": "Retrying payment call (attempt 2/3)",
+      "traceId": "trace-abc-123"
+    }
+  ]
+}
+
+### 2. ✅ Metrics → 202 Accepted
+POST {{baseUrl}}/ingest/metrics
+Content-Type: application/json
+
+{
+  "metrics": [
+    {
+      "service": "payments-service",
+      "name": "http_latency_ms",
+      "value": 870,
+      "unit": "ms",
+      "tags": { "endpoint": "/charge", "method": "POST" }
+    },
+    {
+      "service": "payments-service",
+      "name": "http_error_rate",
+      "value": 0.12,
+      "tags": { "endpoint": "/charge" }
+    }
+  ]
+}
+
+### 3. ✅ System event: a deploy → 202 Accepted
+POST {{baseUrl}}/ingest/events
+Content-Type: application/json
+
+{
+  "events": [
+    {
+      "service": "payments-service",
+      "type": "deploy",
+      "title": "Deployed payments-service v1.4.2",
+      "timestamp": "2026-11-09T10:10:00+05:30",
+      "attributes": { "version": "1.4.2", "commit": "a1b2c3d" }
+    }
+  ]
+}
+
+### 4. ❌ Invalid log: bad service name, unknown level, empty message → 400
+POST {{baseUrl}}/ingest/logs
+Content-Type: application/json
+
+{
+  "logs": [
+    { "service": "Payments Service", "level": "critical", "message": "" }
+  ]
+}
+
+### 5. ❌ Unknown field "hacker" → 400 (forbidNonWhitelisted)
+POST {{baseUrl}}/ingest/metrics
+Content-Type: application/json
+
+{
+  "metrics": [
+    { "service": "orders-service", "name": "cpu_percent", "value": 55, "hacker": true }
+  ]
+}
+
+### 6. ❌ Value is a string, not a number → 400
+POST {{baseUrl}}/ingest/metrics
+Content-Type: application/json
+
+{
+  "metrics": [
+    { "service": "orders-service", "name": "cpu_percent", "value": "high" }
+  ]
+}
+
+### 7. ❌ Empty batch → 400
+POST {{baseUrl}}/ingest/events
+Content-Type: application/json
+
+{ "events": [] }
+
+### 8. ❌ Bad timestamp → 400
+POST {{baseUrl}}/ingest/logs
+Content-Type: application/json
+
+{
+  "logs": [
+    { "service": "orders-service", "level": "info", "message": "hi", "timestamp": "yesterday" }
+  ]
+}
